@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <persistence xmlns="http://java.sun.com/xml/ns/persistence" version="2.0">
     <persistence-unit name="events" transaction-type="RESOURCE_LOCAL">
-
+        <class>ru.teamscore.events.entity.EventType</class>
+        <class>ru.teamscore.events.entity.EventField</class>
+        <class>ru.teamscore.events.entity.Event</class>
+        <class>ru.teamscore.events.entity.EventFieldValue</class>
     </persistence-unit>
 </persistence>
