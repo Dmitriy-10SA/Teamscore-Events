@@ -48,8 +48,8 @@
             <vbox id="dynamicFieldsContainer" spacing="true"/>
         </groupBox>
         <hbox id="editActions" spacing="true">
-            <button id="okBtn" action="windowCommitAndClose" caption="msg://ok"/>
-            <button id="cancelBtn" action="windowClose" caption="msg://cancel"/>
+            <button action="windowCommitAndClose"/>
+            <button action="windowClose"/>
         </hbox>
     </layout>
 </window>

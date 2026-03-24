@@ -1,17 +1,22 @@
 package ru.teamscore.events.web.screens.event;
 
-import com.haulmont.cuba.core.global.AppBeans;
+import com.haulmont.cuba.core.global.DataManager;
+import com.haulmont.cuba.core.global.Metadata;
+import com.haulmont.cuba.gui.Notifications;
 import com.haulmont.cuba.gui.UiComponents;
 import com.haulmont.cuba.gui.components.*;
+import com.haulmont.cuba.gui.model.DataContext;
 import com.haulmont.cuba.gui.screen.*;
 import ru.teamscore.events.entity.Event;
 import ru.teamscore.events.entity.EventField;
 import ru.teamscore.events.entity.EventFieldValue;
 import ru.teamscore.events.entity.EventType;
 import ru.teamscore.events.entity.enums.EventFieldType;
-import ru.teamscore.events.service.EventFieldService;
 
 import javax.inject.Inject;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,11 +35,27 @@ public class EventEdit extends StandardEditor<Event> {
     @Inject
     private UiComponents uiComponents;
 
+    @Inject
+    private Notifications notifications;
+
+    @Inject
+    private DataManager dataManager;
+
+    @Inject
+    private Metadata metadata;
+
+    @Inject
+    private DataContext dataContext;
+
+    /**
+     * Карта компонентов динамических полей (ключ - fieldId, значение - UI компонент)
+     */
     private final Map<String, Component> dynamicFieldComponents = new HashMap<>();
 
-    private EventFieldService getEventFieldService() {
-        return AppBeans.get(EventFieldService.class);
-    }
+    /**
+     * Карта метаданных полей (ключ - fieldId, значение - EventField)
+     */
+    private final Map<String, EventField> fieldsMetadata = new HashMap<>();
 
     /**
      * Построение динамических полей для выбранного типа события
@@ -43,13 +64,18 @@ public class EventEdit extends StandardEditor<Event> {
         // Очищаем контейнер и компоненты
         dynamicFieldsContainer.removeAll();
         dynamicFieldComponents.clear();
+        fieldsMetadata.clear();
         // Скрываем блок динамических полей, если тип события не выбран
         if (eventType == null) {
             dynamicFieldsBox.setVisible(false);
             return;
         }
-        // Загружаем поля для выбранного типа события через сервис
-        List<EventField> fields = getEventFieldService().getEventFieldsByType(eventType);
+        // Загружаем поля для выбранного типа события напрямую через DataManager
+        List<EventField> fields = dataManager.load(EventField.class)
+                .query("select f from events_EventField f where f.eventType.id = :typeId order by f.name")
+                .parameter("typeId", eventType.getId())
+                .view("_local")
+                .list();
         // Если нет полей, скрываем блок динамических полей
         if (fields.isEmpty()) {
             dynamicFieldsBox.setVisible(false);
@@ -57,10 +83,11 @@ public class EventEdit extends StandardEditor<Event> {
         }
         // Показываем блок динамических полей
         dynamicFieldsBox.setVisible(true);
-        // Получаем существующие значения через сервис
-        Map<String, EventFieldValue> existingValues = getEventFieldService().getExistingFieldValuesMap(getEditedEntity());
+        // Получаем существующие значения
+        Map<String, EventFieldValue> existingValues = getExistingFieldValuesMap();
         // Создаем UI-компоненты для каждого поля
         for (EventField field : fields) {
+            fieldsMetadata.put(field.getFieldId(), field);
             Component component = createFieldComponent(field, existingValues.get(field.getFieldId()));
             if (component != null) {
                 dynamicFieldsContainer.add(component);
@@ -69,32 +96,101 @@ public class EventEdit extends StandardEditor<Event> {
         }
     }
 
+    /**
+     * Получить существующие значения полей для события в виде Map
+     */
+    private Map<String, EventFieldValue> getExistingFieldValuesMap() {
+        Map<String, EventFieldValue> existingValues = new HashMap<>();
+        Event event = getEditedEntity();
+        if (event.getId() != null && event.getFieldValues() != null) {
+            // Используем уже загруженные значения из события
+            for (EventFieldValue fieldValue : event.getFieldValues()) {
+                EventField field = fieldValue.getEventField();
+                if (field != null && field.getFieldId() != null) {
+                    existingValues.put(field.getFieldId(), fieldValue);
+                }
+            }
+        }
+        return existingValues;
+    }
 
+
+    /**
+     * Сохранить значения динамических полей
+     */
     private void saveDynamicFieldValues() {
         EventType eventType = getEditedEntity().getType();
         if (eventType == null) {
             return;
         }
-
-        // Собираем значения из UI-компонентов
-        Map<String, Object> fieldValues = new HashMap<>();
-
+        Event event = getEditedEntity();
+        Map<String, EventFieldValue> existingValues = getExistingFieldValuesMap();
         for (Map.Entry<String, Component> entry : dynamicFieldComponents.entrySet()) {
             String fieldId = entry.getKey();
             Component component = entry.getValue();
-
+            EventField field = fieldsMetadata.get(fieldId);
+            if (field == null) {
+                continue;
+            }
             Object value = extractValueFromComponent(component);
             if (value != null) {
-                fieldValues.put(fieldId, value);
+                createOrUpdateFieldValue(event, field, value, existingValues.get(fieldId));
             }
         }
-
-        // Сохраняем значения через сервис
-        getEventFieldService().saveEventFieldValues(getEditedEntity(), fieldValues);
     }
 
     /**
-     * Извлечение значения из UI-компонента
+     * Создать или обновить значение дополнительного поля
+     */
+    private void createOrUpdateFieldValue(Event event, EventField field, Object value, EventFieldValue existingValue) {
+        EventFieldValue fieldValue;
+        if (existingValue == null) {
+            // Создаем новую сущность через metadata
+            fieldValue = metadata.create(EventFieldValue.class);
+            fieldValue.setEvent(event);
+            EventField managedField = dataManager.load(EventField.class)
+                    .id(field.getId())
+                    .one();
+            fieldValue.setEventField(managedField);
+            if (event.getFieldValues() == null) {
+                event.setFieldValues(new ArrayList<>());
+            }
+            event.getFieldValues().add(fieldValue);
+        } else {
+            // Используем существующее значение, которое уже в DataContext
+            fieldValue = existingValue;
+        }
+        setFieldValueByType(fieldValue, field.getType(), value);
+    }
+
+    /**
+     * Установить значение поля в зависимости от его типа
+     */
+    private void setFieldValueByType(EventFieldValue fieldValue, EventFieldType fieldType, Object value) {
+        if (value == null) {
+            return;
+        }
+        switch (fieldType) {
+            case STRING:
+                fieldValue.setStringValue((String) value);
+                break;
+            case TEXT:
+                fieldValue.setTextValue((String) value);
+                break;
+            case DATE:
+                fieldValue.setDateValue((LocalDate) value);
+                break;
+            case DATETIME:
+                fieldValue.setDateTimeValue((LocalDateTime) value);
+                break;
+            case BINARY:
+                fieldValue.setFileValue((com.haulmont.cuba.core.entity.FileDescriptor) value);
+                break;
+        }
+    }
+
+    /**
+     * Извлечь значение из UI-компонента
      */
     private Object extractValueFromComponent(Component component) {
         if (component instanceof TextField) {
@@ -109,6 +205,9 @@ public class EventEdit extends StandardEditor<Event> {
         return null;
     }
 
+    /**
+     * Создание UI-компонента для дополнительного поля
+     */
     private Component createFieldComponent(EventField field, EventFieldValue existingValue) {
         EventFieldType fieldType = field.getType();
         switch (fieldType) {
@@ -158,9 +257,21 @@ public class EventEdit extends StandardEditor<Event> {
         }
     }
 
+    /**
+     * Валидация перед сохранением события (дата начала не позже даты окончания
+     */
     @Subscribe
     public void onBeforeCommitChanges(BeforeCommitChangesEvent event) {
-        // Сохраняем значения динамических полей
+        LocalDateTime startDateTime = getEditedEntity().getStartDateTime();
+        LocalDateTime endDateTime = getEditedEntity().getEndDateTime();
+        if (startDateTime != null && endDateTime != null && startDateTime.isAfter(endDateTime)) {
+            notifications.create(Notifications.NotificationType.WARNING)
+                    .withCaption("Ошибка валидации")
+                    .withDescription("Дата начала не может быть позже даты окончания события")
+                    .show();
+            event.preventCommit();
+            return;
+        }
         saveDynamicFieldValues();
     }
 
@@ -173,7 +284,7 @@ public class EventEdit extends StandardEditor<Event> {
     }
 
     /**
-     * При открытии экрана - построение динамических полей для текущего типа
+     * Обработчик после отображения экрана. Строит динамические поля для текущего типа события
      */
     @Subscribe
     public void onAfterShow(AfterShowEvent event) {
