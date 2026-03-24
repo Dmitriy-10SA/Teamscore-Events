@@ -5,7 +5,6 @@ import com.haulmont.cuba.core.global.Metadata;
 import com.haulmont.cuba.gui.Notifications;
 import com.haulmont.cuba.gui.UiComponents;
 import com.haulmont.cuba.gui.components.*;
-import com.haulmont.cuba.gui.model.DataContext;
 import com.haulmont.cuba.gui.screen.*;
 import ru.teamscore.events.entity.Event;
 import ru.teamscore.events.entity.EventField;
@@ -43,9 +42,6 @@ public class EventEdit extends StandardEditor<Event> {
 
     @Inject
     private Metadata metadata;
-
-    @Inject
-    private DataContext dataContext;
 
     /**
      * Карта компонентов динамических полей (ключ - fieldId, значение - UI компонент)
