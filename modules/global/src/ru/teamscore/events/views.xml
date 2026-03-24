@@ -18,4 +18,14 @@
             </property>
         </property>
     </view>
+    <!-- View для сущности EventFieldValue со всеми полями значений -->
+    <view entity="events_EventFieldValue" name="eventFieldValue-with-values" extends="_local">
+        <property name="eventField" view="_minimal"/>
+        <property name="event" view="_minimal"/>
+        <property name="stringValue"/>
+        <property name="textValue"/>
+        <property name="dateValue"/>
+        <property name="dateTimeValue"/>
+        <property name="fileValue" view="_minimal"/>
+    </view>
 </views>
