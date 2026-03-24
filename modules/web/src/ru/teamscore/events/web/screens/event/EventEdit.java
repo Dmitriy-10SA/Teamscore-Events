@@ -13,6 +13,7 @@ import ru.teamscore.events.entity.EventField;
 import ru.teamscore.events.entity.EventFieldValue;
 import ru.teamscore.events.entity.EventType;
 import ru.teamscore.events.entity.enums.EventFieldType;
+import ru.teamscore.events.entity.enums.EventStatus;
 
 import javax.inject.Inject;
 import java.time.LocalDate;
@@ -310,17 +311,33 @@ public class EventEdit extends StandardEditor<Event> {
     }
 
     /**
-     * Валидация и сохранение динамических полей перед сохранением события (дата начала не позже даты окончания)
+     * Отображение ошибки валидации
+     */
+    private void notifyValidationError(String descriptionKey) {
+        notifications.create(Notifications.NotificationType.WARNING)
+                .withCaption(messages.getMessage(getClass(), "validationError"))
+                .withDescription(messages.getMessage(getClass(), descriptionKey))
+                .show();
+    }
+
+    /**
+     * Валидация и сохранение динамических полей перед сохранением события
+     * - дата начала не позже даты окончания
+     * - событие не может быть в статусе "ожидание", если дата начала события уже наступила
      */
     @Subscribe
     public void onBeforeCommitChanges(BeforeCommitChangesEvent event) {
         LocalDateTime startDateTime = getEditedEntity().getStartDateTime();
         LocalDateTime endDateTime = getEditedEntity().getEndDateTime();
         if (startDateTime != null && endDateTime != null && startDateTime.isAfter(endDateTime)) {
-            notifications.create(Notifications.NotificationType.WARNING)
-                    .withCaption(messages.getMessage(getClass(), "validationError"))
-                    .withDescription(messages.getMessage(getClass(), "validationErrorDateTime"))
-                    .show();
+            notifyValidationError("validationErrorDateTime");
+            event.preventCommit();
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        boolean isExpected = getEditedEntity().getStatus() == EventStatus.EXPECTED;
+        if (startDateTime != null && !startDateTime.isAfter(now) && isExpected) {
+            notifyValidationError("validationErrorWaitingStatusPastStartDate");
             event.preventCommit();
             return;
         }
