@@ -52,7 +52,7 @@ public class Event extends StandardEntity {
     @JoinColumn(name = "TYPE_ID")
     protected EventType type;
 
-    @OneToMany(mappedBy = "event")
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL)
     protected List<EventFieldValue> fieldValues;
 
     public List<EventFieldValue> getFieldValues() {

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <window xmlns="http://schemas.haulmont.com/cuba/screen/window.xsd"
+        caption="msg://eventEdit.caption"
         focusComponent="form"
         messagesPack="ru.teamscore.events.web.screens.event">
     <data>
@@ -30,11 +31,17 @@
             <column width="500px">
                 <textField id="nameField" property="name" required="true" requiredMessage="msg://requiredField"/>
                 <textArea id="descriptionField" property="description" rows="3"/>
-                <dateField id="startDateTimeField" property="startDateTime" dateFormat="dd.MM.yyyy HH:mm" resolution="MIN" required="true" requiredMessage="msg://requiredField"/>
-                <dateField id="endDateTimeField" property="endDateTime" dateFormat="dd.MM.yyyy HH:mm" resolution="MIN" required="true" requiredMessage="msg://requiredField"/>
-                <lookupPickerField id="responsibleUserField" property="responsibleUser" optionsContainer="usersDc" required="true" requiredMessage="msg://requiredField"/>
-                <lookupPickerField id="typeField" property="type" optionsContainer="eventTypesDc" required="true" requiredMessage="msg://requiredField"/>
-                <lookupField id="statusField" property="status" optionsEnum="ru.teamscore.events.entity.enums.EventStatus" required="true" requiredMessage="msg://requiredField"/>
+                <dateField id="startDateTimeField" property="startDateTime" dateFormat="dd.MM.yyyy HH:mm"
+                           resolution="MIN" required="true" requiredMessage="msg://requiredField"/>
+                <dateField id="endDateTimeField" property="endDateTime" dateFormat="dd.MM.yyyy HH:mm" resolution="MIN"
+                           required="true" requiredMessage="msg://requiredField"/>
+                <lookupPickerField id="responsibleUserField" property="responsibleUser" optionsContainer="usersDc"
+                                   required="true" requiredMessage="msg://requiredField"/>
+                <lookupPickerField id="typeField" property="type" optionsContainer="eventTypesDc" required="true"
+                                   requiredMessage="msg://requiredField"/>
+                <lookupField id="statusField" property="status"
+                             optionsEnum="ru.teamscore.events.entity.enums.EventStatus" required="true"
+                             requiredMessage="msg://requiredField"/>
             </column>
         </form>
         <groupBox id="dynamicFieldsBox" caption="msg://dynamicFields" spacing="true" width="500px" visible="false">
