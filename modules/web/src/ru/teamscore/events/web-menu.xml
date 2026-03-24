@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <menu-config xmlns="http://schemas.haulmont.com/cuba/menu.xsd">
-    <menu id="application-events" insertBefore="administration" caption="mainMsg://menu_config.application-events">
+    <menu id="company" insertBefore="administration" caption="mainMsg://menu_config.company">
+        <item screen="events_Event.browse" caption="mainMsg://menu_config.events"/>
     </menu>
 </menu-config>
