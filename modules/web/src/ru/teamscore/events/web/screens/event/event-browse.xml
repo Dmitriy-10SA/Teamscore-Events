@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<window xmlns="http://schemas.haulmont.com/cuba/screen/window.xsd"
+        caption="msg://eventBrowse.caption"
+        focusComponent="eventsTable"
+        messagesPack="ru.teamscore.events.web.screens.event">
+    <data readOnly="true">
+        <collection id="eventsDc"
+                    class="ru.teamscore.events.entity.Event"
+                    view="event-browse">
+            <loader id="eventsDl">
+                <query>
+                    <![CDATA[select e from events_Event e order by e.createTs desc]]>
+                </query>
+            </loader>
+        </collection>
+    </data>
+    <dialogMode height="600"
+                width="800"/>
+    <layout expand="eventsTable"
+            spacing="true">
+        <groupTable id="eventsTable"
+                    width="100%"
+                    dataContainer="eventsDc">
+            <actions>
+                <action id="edit" type="edit">
+                    <properties>
+                        <property name="openMode" value="NEW_TAB"/>
+                    </properties>
+                </action>
+                <action id="remove" type="remove"/>
+            </actions>
+            <columns>
+                <column id="name" caption="msg://Event.name"/>
+                <column id="startDateTime" caption="msg://Event.startDateTime"/>
+                <column id="endDateTime" caption="msg://Event.endDateTime"/>
+                <column id="responsibleUser" caption="msg://Event.responsibleUser"/>
+                <column id="createTs" caption="msg://Event.createTs"/>
+                <column id="status" caption="msg://Event.status"/>
+            </columns>
+            <rowsCount/>
+            <buttonsPanel id="buttonsPanel"
+                          alwaysVisible="true">
+                <button id="removeBtn" action="eventsTable.remove"/>
+            </buttonsPanel>
+        </groupTable>
+        <hbox id="lookupActions" spacing="true" visible="false">
+            <button action="lookupSelectAction"/>
+            <button action="lookupCancelAction"/>
+        </hbox>
+    </layout>
+</window>

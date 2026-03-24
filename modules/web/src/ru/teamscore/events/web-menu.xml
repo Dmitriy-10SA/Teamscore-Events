@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Меню -->
 <menu-config xmlns="http://schemas.haulmont.com/cuba/menu.xsd">
-    <menu id="application-events" insertBefore="administration" caption="mainMsg://menu_config.application-events">
+    <!-- Пункт меню "Компания" -->
+    <menu id="company" insertBefore="administration" caption="mainMsg://menu_config.company">
+        <!-- Подпункты меню "Компания" -->
+        <item screen="events_Event.browse" caption="mainMsg://menu_config.events"/>
+        <item screen="events_Event.edit" caption="mainMsg://menu_config.addEvent"/>
     </menu>
 </menu-config>
