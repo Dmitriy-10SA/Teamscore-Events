@@ -1,6 +1,8 @@
 package ru.teamscore.events.web.screens.event;
 
+import com.haulmont.cuba.core.entity.FileDescriptor;
 import com.haulmont.cuba.core.global.DataManager;
+import com.haulmont.cuba.core.global.Messages;
 import com.haulmont.cuba.core.global.Metadata;
 import com.haulmont.cuba.gui.Notifications;
 import com.haulmont.cuba.gui.UiComponents;
@@ -27,6 +29,9 @@ import java.util.Map;
 public class EventEdit extends StandardEditor<Event> {
     @Inject
     private VBoxLayout dynamicFieldsContainer;
+
+    @Inject
+    private Messages messages;
 
     @Inject
     private GroupBoxLayout dynamicFieldsBox;
@@ -57,31 +62,24 @@ public class EventEdit extends StandardEditor<Event> {
      * Построение динамических полей для выбранного типа события
      */
     private void buildDynamicFields(EventType eventType) {
-        // Очищаем контейнер и компоненты
         dynamicFieldsContainer.removeAll();
         dynamicFieldComponents.clear();
         fieldsMetadata.clear();
-        // Скрываем блок динамических полей, если тип события не выбран
         if (eventType == null) {
             dynamicFieldsBox.setVisible(false);
             return;
         }
-        // Загружаем поля для выбранного типа события напрямую через DataManager
         List<EventField> fields = dataManager.load(EventField.class)
                 .query("select f from events_EventField f where f.eventType.id = :typeId order by f.name")
                 .parameter("typeId", eventType.getId())
                 .view("_local")
                 .list();
-        // Если нет полей, скрываем блок динамических полей
         if (fields.isEmpty()) {
             dynamicFieldsBox.setVisible(false);
             return;
         }
-        // Показываем блок динамических полей
         dynamicFieldsBox.setVisible(true);
-        // Получаем существующие значения
         Map<String, EventFieldValue> existingValues = getExistingFieldValuesMap();
-        // Создаем UI-компоненты для каждого поля
         for (EventField field : fields) {
             fieldsMetadata.put(field.getFieldId(), field);
             Component component = createFieldComponent(field, existingValues.get(field.getFieldId()));
@@ -99,7 +97,6 @@ public class EventEdit extends StandardEditor<Event> {
         Map<String, EventFieldValue> existingValues = new HashMap<>();
         Event event = getEditedEntity();
         if (event.getId() != null && event.getFieldValues() != null) {
-            // Используем уже загруженные значения из события
             for (EventFieldValue fieldValue : event.getFieldValues()) {
                 EventField field = fieldValue.getEventField();
                 if (field != null && field.getFieldId() != null) {
@@ -117,90 +114,51 @@ public class EventEdit extends StandardEditor<Event> {
     private void saveDynamicFieldValues() {
         Event event = getEditedEntity();
         EventType eventType = event.getType();
-
         Map<String, EventFieldValue> existingValues = getExistingFieldValuesMap();
-
         List<EventFieldValue> newValues = new ArrayList<>();
-
         if (eventType == null) {
             event.setFieldValues(newValues);
             return;
         }
-
         for (Map.Entry<String, Component> entry : dynamicFieldComponents.entrySet()) {
             String fieldId = entry.getKey();
             Component component = entry.getValue();
             EventField field = fieldsMetadata.get(fieldId);
-
             if (field == null) {
                 continue;
             }
-
             Object value = extractValueFromComponent(component);
-
             if (value instanceof String && ((String) value).trim().isEmpty()) {
                 value = null;
             }
-
             if (value == null) {
                 continue;
             }
-
             EventFieldValue fieldValue = existingValues.get(fieldId);
-
             boolean isValidExistingValue = fieldValue != null
                     && fieldValue.getEventField() != null
                     && fieldValue.getEventField().getId().equals(field.getId());
-
             if (!isValidExistingValue) {
                 fieldValue = metadata.create(EventFieldValue.class);
                 fieldValue.setEvent(event);
                 fieldValue.setEventField(field);
             }
-
             clearFieldValue(fieldValue);
             setFieldValueByType(fieldValue, field.getType(), value);
-
             newValues.add(fieldValue);
         }
-
         event.setFieldValues(newValues);
     }
 
+    /**
+     * Очистить значения дополнительных полей
+     */
     private void clearFieldValue(EventFieldValue fieldValue) {
         fieldValue.setStringValue(null);
         fieldValue.setTextValue(null);
         fieldValue.setDateValue(null);
         fieldValue.setDateTimeValue(null);
         fieldValue.setFileValue(null);
-    }
-
-    /**
-     * Создать или обновить значение дополнительного поля
-     */
-    private void createOrUpdateFieldValue(Event event, EventField field, Object value, EventFieldValue existingValue) {
-        EventFieldValue fieldValue;
-        // Проверяем, что existingValue действительно относится к текущему полю
-        boolean isValidExistingValue = existingValue != null
-                && existingValue.getEventField() != null
-                && existingValue.getEventField().getId().equals(field.getId());
-        if (!isValidExistingValue) {
-            // Создаем новую сущность через metadata
-            fieldValue = metadata.create(EventFieldValue.class);
-            fieldValue.setEvent(event);
-            EventField managedField = dataManager.load(EventField.class)
-                    .id(field.getId())
-                    .one();
-            fieldValue.setEventField(managedField);
-            if (event.getFieldValues() == null) {
-                event.setFieldValues(new ArrayList<>());
-            }
-            event.getFieldValues().add(fieldValue);
-        } else {
-            // Используем существующее значение, которое уже в DataContext
-            fieldValue = existingValue;
-        }
-        setFieldValueByType(fieldValue, field.getType(), value);
     }
 
     /**
@@ -224,7 +182,7 @@ public class EventEdit extends StandardEditor<Event> {
                 fieldValue.setDateTimeValue((LocalDateTime) value);
                 break;
             case BINARY:
-                fieldValue.setFileValue((com.haulmont.cuba.core.entity.FileDescriptor) value);
+                fieldValue.setFileValue((FileDescriptor) value);
                 break;
         }
     }
@@ -239,8 +197,13 @@ public class EventEdit extends StandardEditor<Event> {
             return ((TextArea<?>) component).getValue();
         } else if (component instanceof DateField) {
             return ((DateField<?>) component).getValue();
-        } else if (component instanceof FileUploadField) {
-            return ((FileUploadField) component).getValue();
+        } else if (component instanceof VBoxLayout) {
+            VBoxLayout container = (VBoxLayout) component;
+            for (Component child : container.getComponents()) {
+                if (child instanceof FileUploadField) {
+                    return ((FileUploadField) child).getValue();
+                }
+            }
         }
         return null;
     }
@@ -252,53 +215,102 @@ public class EventEdit extends StandardEditor<Event> {
         EventFieldType fieldType = field.getType();
         switch (fieldType) {
             case STRING:
-                TextField<String> textField = uiComponents.create(TextField.class);
-                textField.setCaption(field.getName());
-                textField.setWidth("100%");
-                if (existingValue != null) {
-                    textField.setValue(existingValue.getStringValue());
-                }
-                return textField;
+                return createTextFieldComponent(field, existingValue);
             case TEXT:
-                TextArea<String> textArea = uiComponents.create(TextArea.class);
-                textArea.setCaption(field.getName());
-                textArea.setWidth("100%");
-                textArea.setRows(3);
-                if (existingValue != null) {
-                    textArea.setValue(existingValue.getTextValue());
-                }
-                return textArea;
+                return createTextAreaComponent(field, existingValue);
             case DATE:
-                DateField<java.time.LocalDate> dateField = uiComponents.create(DateField.class);
-                dateField.setCaption(field.getName());
-                dateField.setDateFormat("dd.MM.yyyy");
-                if (existingValue != null) {
-                    dateField.setValue(existingValue.getDateValue());
-                }
-                return dateField;
+                return createDateFieldComponent(field, existingValue);
             case DATETIME:
-                DateField<java.time.LocalDateTime> dateTimeField = uiComponents.create(DateField.class);
-                dateTimeField.setCaption(field.getName());
-                dateTimeField.setDateFormat("dd.MM.yyyy HH:mm");
-                dateTimeField.setResolution(DateField.Resolution.MIN);
-                if (existingValue != null) {
-                    dateTimeField.setValue(existingValue.getDateTimeValue());
-                }
-                return dateTimeField;
+                return createDateTimeFieldComponent(field, existingValue);
             case BINARY:
-                FileUploadField fileField = uiComponents.create(FileUploadField.class);
-                fileField.setCaption(field.getName());
-                if (existingValue != null && existingValue.getFileValue() != null) {
-                    fileField.setValue(existingValue.getFileValue());
-                }
-                return fileField;
+                return createBinaryFieldComponent(field, existingValue);
             default:
                 return null;
         }
     }
 
     /**
-     * Валидация перед сохранением события (дата начала не позже даты окончания
+     * Создание UI-компонента для STRING поля
+     */
+    @SuppressWarnings("unchecked")
+    private TextField<String> createTextFieldComponent(EventField field, EventFieldValue existingValue) {
+        TextField<String> textField = uiComponents.create(TextField.class);
+        textField.setCaption(field.getName());
+        textField.setWidth("100%");
+        if (existingValue != null) {
+            textField.setValue(existingValue.getStringValue());
+        }
+        return textField;
+    }
+
+    /**
+     * Создание UI-компонента для TEXT поля
+     */
+    @SuppressWarnings("unchecked")
+    private TextArea<String> createTextAreaComponent(EventField field, EventFieldValue existingValue) {
+        TextArea<String> textArea = uiComponents.create(TextArea.class);
+        textArea.setCaption(field.getName());
+        textArea.setWidth("100%");
+        textArea.setRows(3);
+        if (existingValue != null) {
+            textArea.setValue(existingValue.getTextValue());
+        }
+        return textArea;
+    }
+
+    /**
+     * Создание UI-компонента для DATE поля
+     */
+    @SuppressWarnings("unchecked")
+    private DateField<LocalDate> createDateFieldComponent(EventField field, EventFieldValue existingValue) {
+        DateField<java.time.LocalDate> dateField = uiComponents.create(DateField.class);
+        dateField.setCaption(field.getName());
+        dateField.setDateFormat("dd.MM.yyyy");
+        if (existingValue != null) {
+            dateField.setValue(existingValue.getDateValue());
+        }
+        return dateField;
+    }
+
+    /**
+     * Создание UI-компонента для DATETIME поля
+     */
+    @SuppressWarnings("unchecked")
+    private DateField<LocalDateTime> createDateTimeFieldComponent(EventField field, EventFieldValue existingValue) {
+        DateField<java.time.LocalDateTime> dateTimeField = uiComponents.create(DateField.class);
+        dateTimeField.setCaption(field.getName());
+        dateTimeField.setDateFormat("dd.MM.yyyy HH:mm");
+        dateTimeField.setResolution(DateField.Resolution.MIN);
+        if (existingValue != null) {
+            dateTimeField.setValue(existingValue.getDateTimeValue());
+        }
+        return dateTimeField;
+    }
+
+    /**
+     * Создание UI-компонента для BINARY поля
+     */
+    private Component createBinaryFieldComponent(EventField field, EventFieldValue existingValue) {
+        VBoxLayout fileContainer = uiComponents.create(VBoxLayout.class);
+        fileContainer.setCaption(field.getName());
+        fileContainer.setSpacing(true);
+        fileContainer.setWidth("100%");
+        FileUploadField fileField = uiComponents.create(FileUploadField.class);
+        fileField.setWidth("100%");
+        fileField.setShowFileName(true);
+        fileField.setShowClearButton(true);
+        fileField.setUploadButtonCaption(messages.getMessage(getClass(), "uploadFileButton"));
+        fileField.setClearButtonCaption(messages.getMessage(getClass(), "clearFileButton"));
+        fileField.setMode(FileUploadField.FileStoragePutMode.IMMEDIATE);
+        if (existingValue != null && existingValue.getFileValue() != null) {
+            fileField.setValue(existingValue.getFileValue());
+        }
+        fileContainer.add(fileField);
+        return fileContainer;
+    }
+
+    /**
+     * Валидация и сохранение динамических полей перед сохранением события (дата начала не позже даты окончания)
      */
     @Subscribe
     public void onBeforeCommitChanges(BeforeCommitChangesEvent event) {
@@ -306,8 +318,8 @@ public class EventEdit extends StandardEditor<Event> {
         LocalDateTime endDateTime = getEditedEntity().getEndDateTime();
         if (startDateTime != null && endDateTime != null && startDateTime.isAfter(endDateTime)) {
             notifications.create(Notifications.NotificationType.WARNING)
-                    .withCaption("Ошибка валидации")
-                    .withDescription("Дата начала не может быть позже даты окончания события")
+                    .withCaption(messages.getMessage(getClass(), "validationError"))
+                    .withDescription(messages.getMessage(getClass(), "validationErrorDateTime"))
                     .show();
             event.preventCommit();
             return;
