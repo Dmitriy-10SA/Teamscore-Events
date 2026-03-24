@@ -30,12 +30,12 @@
                 <action id="remove" type="remove"/>
             </actions>
             <columns>
-                <column id="name" caption="msg://Event.name"/>
-                <column id="startDateTime" caption="msg://Event.startDateTime"/>
-                <column id="endDateTime" caption="msg://Event.endDateTime"/>
-                <column id="responsibleUser" caption="msg://Event.responsibleUser"/>
-                <column id="createTs" caption="msg://Event.createTs"/>
-                <column id="status" caption="msg://Event.status"/>
+                <column id="name" caption="msg://Event.name" sortable="true"/>
+                <column id="startDateTime" caption="msg://Event.startDateTime" sortable="true"/>
+                <column id="endDateTime" caption="msg://Event.endDateTime" sortable="true"/>
+                <column id="responsibleUser" caption="msg://Event.responsibleUser" sortable="true"/>
+                <column id="createTs" caption="msg://Event.createTs" sortable="true"/>
+                <column id="status" caption="msg://Event.status" sortable="true"/>
             </columns>
             <rowsCount/>
             <buttonsPanel id="buttonsPanel"
