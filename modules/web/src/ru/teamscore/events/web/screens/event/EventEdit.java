@@ -115,24 +115,64 @@ public class EventEdit extends StandardEditor<Event> {
      * Сохранить значения динамических полей
      */
     private void saveDynamicFieldValues() {
-        EventType eventType = getEditedEntity().getType();
+        Event event = getEditedEntity();
+        EventType eventType = event.getType();
+
+        Map<String, EventFieldValue> existingValues = getExistingFieldValuesMap();
+
+        List<EventFieldValue> newValues = new ArrayList<>();
+
         if (eventType == null) {
+            event.setFieldValues(newValues);
             return;
         }
-        Event event = getEditedEntity();
-        Map<String, EventFieldValue> existingValues = getExistingFieldValuesMap();
+
         for (Map.Entry<String, Component> entry : dynamicFieldComponents.entrySet()) {
             String fieldId = entry.getKey();
             Component component = entry.getValue();
             EventField field = fieldsMetadata.get(fieldId);
+
             if (field == null) {
                 continue;
             }
+
             Object value = extractValueFromComponent(component);
-            if (value != null) {
-                createOrUpdateFieldValue(event, field, value, existingValues.get(fieldId));
+
+            if (value instanceof String && ((String) value).trim().isEmpty()) {
+                value = null;
             }
+
+            if (value == null) {
+                continue;
+            }
+
+            EventFieldValue fieldValue = existingValues.get(fieldId);
+
+            boolean isValidExistingValue = fieldValue != null
+                    && fieldValue.getEventField() != null
+                    && fieldValue.getEventField().getId().equals(field.getId());
+
+            if (!isValidExistingValue) {
+                fieldValue = metadata.create(EventFieldValue.class);
+                fieldValue.setEvent(event);
+                fieldValue.setEventField(field);
+            }
+
+            clearFieldValue(fieldValue);
+            setFieldValueByType(fieldValue, field.getType(), value);
+
+            newValues.add(fieldValue);
         }
+
+        event.setFieldValues(newValues);
+    }
+
+    private void clearFieldValue(EventFieldValue fieldValue) {
+        fieldValue.setStringValue(null);
+        fieldValue.setTextValue(null);
+        fieldValue.setDateValue(null);
+        fieldValue.setDateTimeValue(null);
+        fieldValue.setFileValue(null);
     }
 
     /**
@@ -140,7 +180,11 @@ public class EventEdit extends StandardEditor<Event> {
      */
     private void createOrUpdateFieldValue(Event event, EventField field, Object value, EventFieldValue existingValue) {
         EventFieldValue fieldValue;
-        if (existingValue == null) {
+        // Проверяем, что existingValue действительно относится к текущему полю
+        boolean isValidExistingValue = existingValue != null
+                && existingValue.getEventField() != null
+                && existingValue.getEventField().getId().equals(field.getId());
+        if (!isValidExistingValue) {
             // Создаем новую сущность через metadata
             fieldValue = metadata.create(EventFieldValue.class);
             fieldValue.setEvent(event);
