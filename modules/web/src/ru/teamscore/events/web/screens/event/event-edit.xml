@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<window xmlns="http://schemas.haulmont.com/cuba/screen/window.xsd"
+        focusComponent="form"
+        messagesPack="ru.teamscore.events.web.screens.event">
+    <data>
+        <instance id="eventDc"
+                  class="ru.teamscore.events.entity.Event"
+                  view="event-edit">
+            <loader/>
+        </instance>
+        <collection id="usersDc" class="com.haulmont.cuba.security.entity.User" view="_minimal">
+            <loader id="usersDl">
+                <query>
+                    <![CDATA[select u from sec$User u order by u.name]]>
+                </query>
+            </loader>
+        </collection>
+        <collection id="eventTypesDc" class="ru.teamscore.events.entity.EventType" view="_minimal">
+            <loader id="eventTypesDl">
+                <query>
+                    <![CDATA[select e from events_EventType e order by e.name]]>
+                </query>
+            </loader>
+        </collection>
+    </data>
+    <dialogMode height="auto"
+                width="auto"/>
+    <layout spacing="true">
+        <form id="form" dataContainer="eventDc">
+            <column width="500px">
+                <textField id="nameField" property="name" required="true" requiredMessage="msg://requiredField"/>
+                <textField id="descriptionField" property="description"/>
+                <dateField id="startDateTimeField" property="startDateTime" dateFormat="dd.MM.yyyy HH:mm" resolution="MIN" required="true" requiredMessage="msg://requiredField"/>
+                <dateField id="endDateTimeField" property="endDateTime" dateFormat="dd.MM.yyyy HH:mm" resolution="MIN" required="true" requiredMessage="msg://requiredField"/>
+                <lookupPickerField id="responsibleUserField" property="responsibleUser" optionsContainer="usersDc" required="true" requiredMessage="msg://requiredField"/>
+                <lookupPickerField id="typeField" property="type" optionsContainer="eventTypesDc" required="true" requiredMessage="msg://requiredField"/>
+                <lookupField id="statusField" property="status" optionsEnum="ru.teamscore.events.entity.enums.EventStatus" required="true" requiredMessage="msg://requiredField"/>
+            </column>
+        </form>
+        <groupBox id="dynamicFieldsBox" caption="msg://dynamicFields" spacing="true" width="500px" visible="false">
+            <vbox id="dynamicFieldsContainer" spacing="true"/>
+        </groupBox>
+        <hbox id="editActions" spacing="true">
+            <button id="okBtn" action="windowCommitAndClose" caption="msg://ok"/>
+            <button id="cancelBtn" action="windowClose" caption="msg://cancel"/>
+        </hbox>
+    </layout>
+</window>
